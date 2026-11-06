@@ -32,9 +32,15 @@ GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
 
 DB_PATH: str = os.getenv("DB_PATH", "radar_state.db").strip()
 EXPORT_DIR: str = os.getenv("EXPORT_DIR", "exports").strip()
-POLL_INTERVAL_SECONDS: int = int(os.getenv("POLL_INTERVAL_SECONDS", "300"))
+CHECK_INTERVAL_SECONDS: int = int(
+    os.getenv("CHECK_INTERVAL_SECONDS", os.getenv("POLL_INTERVAL_SECONDS", "300"))
+)
+POLL_INTERVAL_SECONDS: int = CHECK_INTERVAL_SECONDS
 HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "15.0"))
-MIN_ALERT_SCORE: int = int(os.getenv("MIN_ALERT_SCORE", "60"))
+DEFAULT_SCORE_THRESHOLD: int = int(
+    os.getenv("DEFAULT_SCORE_THRESHOLD", os.getenv("MIN_ALERT_SCORE", "60"))
+)
+MIN_ALERT_SCORE: int = DEFAULT_SCORE_THRESHOLD
 
 FORBIDDEN_EXTENSIONS: tuple[str, ...] = (
     ".exe",

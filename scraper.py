@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 from typing import Any
 from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
@@ -20,7 +21,7 @@ DEFAULT_HEADERS: dict[str, str] = {
         "Chrome/128.0.0.0 Safari/537.36"
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml,application/json;q=0.9,*/*;q=0.8",
-    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Language": "en-US,en;q=0.9,uk-UA,uk;q=0.8,ru;q=0.7",
 }
 
 
@@ -123,7 +124,7 @@ def parse_rss_or_atom(xml_text: str, base_url: str = "") -> list[dict[str, str]]
                 clean_snippet = _clean_text(snippet)
                 items.append(
                     {
-                        "title": title or "Без названия",
+                        "title": title or "Untitled",
                         "url": full_url,
                         "raw_snippet": clean_snippet,
                         "item_hash": compute_item_hash(full_url, title),
@@ -163,7 +164,7 @@ def parse_rss_or_atom(xml_text: str, base_url: str = "") -> list[dict[str, str]]
             clean_snippet = _clean_text(snippet)
             items.append(
                 {
-                    "title": title or "Без названия",
+                    "title": title or "Untitled",
                     "url": full_url,
                     "raw_snippet": clean_snippet,
                     "item_hash": compute_item_hash(full_url, title),
@@ -197,7 +198,7 @@ def parse_rss_or_atom(xml_text: str, base_url: str = "") -> list[dict[str, str]]
             full_url = urljoin(base_url, raw_link) if base_url else raw_link
             items.append(
                 {
-                    "title": title or "Без названия",
+                    "title": title or "Untitled",
                     "url": full_url,
                     "raw_snippet": _clean_text(snippet),
                     "item_hash": compute_item_hash(full_url, title),
@@ -361,7 +362,7 @@ def parse_json_feed(json_text: str, base_url: str = "") -> list[dict[str, str]]:
         full_url = urljoin(base_url, url_str) if base_url else url_str
         items.append(
             {
-                "title": title_str or "Без названия",
+                "title": title_str or "Untitled",
                 "url": full_url,
                 "raw_snippet": _clean_text(snippet_str),
                 "item_hash": compute_item_hash(full_url, title_str),
@@ -371,65 +372,207 @@ def parse_json_feed(json_text: str, base_url: str = "") -> list[dict[str, str]]:
     return items
 
 
-def generate_demo_items(keywords: str = "") -> list[dict[str, str]]:
-    """Generate realistic B2B freelancer and agency leads for instant portfolio demo.
+CROSS_LINGUAL_SYNONYMS: dict[str, set[str]] = {
+    "python": {"python", "питон", "пайтон"},
+    "bot": {"bot", "bots", "бот", "боты", "боти", "робот"},
+    "scraping": {"scraping", "scraper", "scrape", "парсинг", "парсер", "скрапинг", "скрапер"},
+    "automation": {"automation", "automate", "автоматизация", "автоматизація"},
+    "ai": {"ai", "llm", "ии", "ші", "нейросеть", "нейромережа", "artificial intelligence"},
+    "lead": {"lead", "leads", "лид", "лиды", "лід", "ліди"},
+    "tender": {"tender", "tenders", "тендер", "тендеры", "тендери"},
+    "freelance": {"freelance", "freelancer", "фриланс", "фріланс"},
+    "crm": {"crm", "срм", "amo", "hubspot", "bitrix", "битрикс", "бітрікс"},
+    "urgent": {"urgent", "срочно", "терміново"},
+    "contract": {"contract", "договор", "контракт", "договір"},
+}
+
+
+def normalize_term(term: str) -> str:
+    """Normalize whitespace and lowercase a keyword term."""
+    return " ".join(term.lower().strip().split())
+
+
+def match_keywords(text: str, keywords: str) -> tuple[bool, list[str]]:
+    """Case-insensitive and whitespace-tolerant keyword matching with cross-lingual expansion.
 
     Args:
-        keywords: Optional filter keywords to adjust lead generation.
+        text: Target lead text (title and/or snippet).
+        keywords: Raw filter criteria.
 
     Returns:
-        A list of 3 pre-configured realistic lead dictionaries.
+        Tuple of (is_matched, matched_terms).
     """
-    demo_records = [
+    if not keywords or keywords.strip() in ("", "-"):
+        return True, []
+
+    norm_text = normalize_term(text)
+    raw_terms = [normalize_term(k) for k in re.split(r"[,;|\n]+", keywords) if k.strip()]
+    if not raw_terms:
+        return True, []
+
+    matched: list[str] = []
+    for term in raw_terms:
+        if term in norm_text:
+            matched.append(term)
+            continue
+
+        # Check cross-lingual synonym expansions
+        found = False
+        for root_key, variants in CROSS_LINGUAL_SYNONYMS.items():
+            if term == root_key or term in variants:
+                for variant in variants:
+                    if variant in norm_text:
+                        matched.append(variant)
+                        found = True
+                        break
+            if found:
+                break
+
+    return (len(matched) > 0), matched
+
+
+DEMO_ITEMS_BY_LANG: dict[str, list[dict[str, str]]] = {
+    "en": [
         {
-            "title": "Разработка AI-агента для мониторинга тендеров и скоринга лидов на Python / aiogram / LLM (Бюджет: $4,500)",
+            "title": "AI Agent Development for Tender Monitoring & Lead Scoring (Python / aiogram / LLM) - Budget: $4,500",
             "url": "https://freelance-radar.internal/jobs/enterprise-ai-agent-4500",
+            "category": "HOT_LEAD",
+            "raw_snippet": (
+                "Major consulting firm seeks Senior Python Developer to build a resilient B2B "
+                "lead monitoring and scoring system. Tech stack: Python, aiogram 3.x, SQLite WAL, "
+                "Google Gemini / LLM, aiohttp. Telegram bot and web scraping experience required. "
+                "Timeline: 3 weeks. Fixed budget: $4,500."
+            ),
+        },
+        {
+            "title": "Automated Supplier Catalog Scraping & Shopify/1C Inventory Sync ($2,800)",
+            "url": "https://freelance-radar.internal/jobs/ecommerce-supplier-scraper-2800",
+            "category": "HIGH_VALUE",
+            "raw_snippet": (
+                "Need automated price and stock extraction from 5 wholesale supplier platforms "
+                "(HTML/API/XML) with export to Excel/CSV and CRM. Anti-bot protection, proxy rotation, "
+                "and captcha handling required. Budget: $2,800 with optional monthly maintenance."
+            ),
+        },
+        {
+            "title": "CRM Integration (HubSpot/amoCRM) with Telegram Bot & Webhooks for Sales Team ($1,500)",
+            "url": "https://freelance-radar.internal/jobs/crm-telegram-webhook-1500",
+            "category": "STANDARD",
+            "raw_snippet": (
+                "Looking to develop a Telegram bot for instant deal alerts, status change notifications, "
+                "and weekly analytics reports for sales reps. REST API and async Python experience "
+                "required. Budget: $1,500."
+            ),
+        },
+    ],
+    "uk": [
+        {
+            "title": "Розробка AI-агента для моніторингу тендерів та скорингу лідів (Python / aiogram / LLM) - Бюджет: $4,500",
+            "url": "https://freelance-radar.internal/jobs/enterprise-ai-agent-4500",
+            "category": "HOT_LEAD",
+            "raw_snippet": (
+                "Провідна консалтингова компанія шукає Senior Python розробника для створення "
+                "відмовостійкої системи моніторингу та скорингу B2B-лідів. Стек: Python, aiogram 3.x, "
+                "SQLite WAL, Google Gemini / LLM, aiohttp. Обов'язковий досвід з Telegram-ботами "
+                "та веб-парсингом. Термін: 3 тижні. Фіксований бюджет: $4,500."
+            ),
+        },
+        {
+            "title": "Автоматизований парсинг каталогів постачальників та синхронізація залишків Shopify/1C ($2,800)",
+            "url": "https://freelance-radar.internal/jobs/ecommerce-supplier-scraper-2800",
+            "category": "HIGH_VALUE",
+            "raw_snippet": (
+                "Потрібно налаштувати автоматичний збір цін та залишків з 5 оптових платформ "
+                "постачальників (HTML/API/XML) з вивантаженням в Excel/CSV та CRM. Необхідний захист "
+                "від блокувань, ротація проксі та обробка капчі. Бюджет: $2,800 з опцією щомісячної підтримки."
+            ),
+        },
+        {
+            "title": "Інтеграція CRM (HubSpot/amoCRM) з Telegram-ботом та вебхуками для відділу продажів ($1,500)",
+            "url": "https://freelance-radar.internal/jobs/crm-telegram-webhook-1500",
+            "category": "STANDARD",
+            "raw_snippet": (
+                "Шукаємо спеціаліста для розробки Telegram-бота для миттєвих сповіщень про нові угоди, "
+                "зміни статусів та щотижневих аналітичних звітів для менеджерів. Досвід з REST API "
+                "та асинхронним Python обов'язковий. Бюджет: $1,500."
+            ),
+        },
+    ],
+    "ru": [
+        {
+            "title": "Разработка AI-агента для мониторинга тендеров и скоринга лидов (Python / aiogram / LLM) - Бюджет: $4,500",
+            "url": "https://freelance-radar.internal/jobs/enterprise-ai-agent-4500",
+            "category": "HOT_LEAD",
             "raw_snippet": (
                 "Крупная консалтинговая компания ищет Senior Python разработчика для создания "
                 "отказоустойчивой системы мониторинга и скоринга B2B-лидов. Стек: Python, aiogram 3.x, "
                 "SQLite WAL, Google Gemini / LLM, aiohttp. Обязателен опыт работы с Telegram-ботами "
-                "и парсингом. Срок: 3 недели. Фиксированный бюджет: $4,500."
+                "и веб-парсингом. Срок: 3 недели. Фиксированный бюджет: $4,500."
             ),
         },
         {
             "title": "Автоматизация парсинга каталогов поставщиков и синхронизация остатков Shopify/1C ($2,800)",
             "url": "https://freelance-radar.internal/jobs/ecommerce-supplier-scraper-2800",
+            "category": "HIGH_VALUE",
             "raw_snippet": (
                 "Требуется настроить автоматический сбор цен и остатков с 5 оптовых платформ "
                 "поставщиков (HTML/API/XML) с выгрузкой в Excel/CSV и CRM. Необходима защита от блокировок, "
-                "ротация прокси и обработка капчи. Бюджет: $2,800, возможна помесячная поддержка."
+                "ротация прокси и обработка капчи. Бюджет: $2,800 с возможной помесячной поддержкой."
             ),
         },
         {
             "title": "Интеграция CRM (HubSpot/amoCRM) с Telegram-ботом и вебхуками для отдела продаж ($1,500)",
             "url": "https://freelance-radar.internal/jobs/crm-telegram-webhook-1500",
+            "category": "STANDARD",
             "raw_snippet": (
-                "Необходимо разработать Telegram-бота для мгновенного информирования менеджеров "
+                "Требуется разработать Telegram-бота для мгновенного информирования менеджеров "
                 "о новых сделках, изменениях статусов и экспорта еженедельных аналитических отчётов. "
-                "Опыт работы с REST API и асинхронным кодом обязателен. Бюджет: $1,500."
+                "Опыт работы с REST API и асинхронным Python обязателен. Бюджет: $1,500."
             ),
         },
-    ]
+    ],
+}
 
-    results: list[dict[str, str]] = []
-    for item in demo_records:
+
+def generate_demo_items(keywords: str = "", lang: str = "en") -> list[dict]:
+    """Generate realistic B2B freelancer and agency leads for instant portfolio demo.
+
+    Args:
+        keywords: Optional filter keywords to adjust lead generation.
+        lang: Target interface language ('en', 'uk', 'ru'). Defaults to 'en'.
+
+    Returns:
+        A list of 3 pre-configured realistic lead dictionaries with unique lead IDs.
+    """
+    clean_lang = (lang or "en").lower().strip()
+    if clean_lang not in DEMO_ITEMS_BY_LANG:
+        clean_lang = "en"
+
+    demo_records = DEMO_ITEMS_BY_LANG[clean_lang]
+    results: list[dict] = []
+    for idx, item in enumerate(demo_records, start=1):
         h = compute_item_hash(item["url"], item["title"])
+        lead_id = f"demo_lead_{h[:10]}"
         results.append(
             {
+                "id": lead_id,
+                "lead_id": lead_id,
                 "title": item["title"],
                 "url": item["url"],
                 "raw_snippet": item["raw_snippet"],
+                "category": item.get("category", "STANDARD"),
                 "item_hash": h,
             }
         )
     return results
 
 
-async def scrape_source(source: dict[str, Any]) -> list[dict[str, str]]:
+async def scrape_source(source: dict[str, Any], lang: str = "en") -> list[dict[str, str]]:
     """Scrape and parse an individual source based on its configuration.
 
     Args:
         source: Source dictionary containing source_type, url, keywords, etc.
+        lang: Language for demo feed generation.
 
     Returns:
         List of parsed lead items with hashes.
@@ -438,7 +581,7 @@ async def scrape_source(source: dict[str, Any]) -> list[dict[str, str]]:
     url = source.get("url", "")
 
     if source_type == "demo" or url.startswith("internal://"):
-        return generate_demo_items(source.get("keywords", ""))
+        return generate_demo_items(source.get("keywords", ""), lang=lang)
 
     try:
         content = await fetch_url(url)

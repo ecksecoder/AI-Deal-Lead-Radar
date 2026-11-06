@@ -1,111 +1,151 @@
-# AI Deal & Lead Radar (Enterprise Monitoring & AI Scoring System)
+# AI Deal and Lead Radar
 
-Production-ready, asynchronous B2B deal monitoring, web-scraping, and AI-scoring system equipped with an interactive Telegram control panel (`aiogram 3.x`), SQLite WAL deduplication engine, and automated Excel-compatible reporting with UTF-8 BOM.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![aiogram](https://img.shields.io/badge/aiogram-3.x-blue.svg)](https://github.com/aiogram/aiogram)
+[![SQLite](https://img.shields.io/badge/SQLite-WAL-orange.svg)](https://www.sqlite.org/)
+[![BeautifulSoup4](https://img.shields.io/badge/BeautifulSoup4-4.12%2B-green.svg)](https://www.crummy.com/software/BeautifulSoup/)
+[![feedparser](https://img.shields.io/badge/feedparser-6.x-brightgreen.svg)](https://github.com/kurtmckee/feedparser)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
+[English] | [Документация на русском](README_RU.md)
 
-## Key Capabilities
-
-- **Zero-Config Portfolio Demo:** Immediate out-of-the-box `/demo` command and interactive button simulating ingestion of 3 realistic B2B projects, running AI scoring, and rendering Telegram Micro-CRM cards.
-- **Multimodal Source Ingestion:** Supports RSS/Atom feeds, generic HTML listings (articles, jobs, tenders), JSON APIs, and internal demo generators with SSRF protection.
-- **Deterministic Deduplication:** SHA-256 content hashing in SQLite WAL mode prevents duplicate notifications.
-- **Dual-Engine AI Scoring:**
-  - **Google Gemini Engine:** Evaluates opportunities against target criteria using `gemini-3.8-flash` via the official `google-genai` SDK.
-  - **Resilient Heuristic Fallback:** If API quota is exhausted or `GEMINI_API_KEY` is omitted, the system falls back to keyword-density, budget-detection, and regex heuristics without interrupting background operations.
-- **Interactive Telegram Control Panel:** Built on `aiogram 3.x` with inline source management (toggle pause/run, check now, delete) and Micro-CRM actions (`⭐ В избранное`, `📥 В архив`, `🔗 Открыть источник`).
-- **Excel-Compatible Reporting:** Generates `.csv` exports with UTF-8 BOM (`\xef\xbb\xbf`) and semicolon (`;`) delimiter, ensuring Cyrillic text and numbers open natively in Microsoft Excel without broken encoding.
+Production-grade asynchronous deal monitoring, lead ingestion, and neural relevance scoring system for freelance platforms, procurement portals, and B2B aggregators. Equipped with an interactive Telegram control panel (aiogram 3.x), SQLite WAL deduplication engine, trilingual localization (EN/UK/RU), and automated Excel-compatible reporting with UTF-8 Byte Order Mark (BOM).
 
 ---
 
-## Architecture & Code Structure
-
-The project strictly follows a flat, modular architecture (6 core Python modules):
+## Architecture Overview
 
 ```
-project_3/
-├── .env.example        # Environment variable template
-├── .gitignore           # Git exclusions (.env, *.db, exports/, __pycache__/)
-├── requirements.txt     # Python dependencies
-├── README.md            # System documentation
-├── config.py            # Environment validation, constants, and SSRF filter
-├── database.py          # Asynchronous SQLite WAL manager (asyncio.to_thread)
-├── scraper.py           # aiohttp client, retry backoff, RSS/HTML/JSON parsers
-├── ai_scorer.py         # Google Gemini SDK scoring + deterministic heuristic fallback
-├── exporter.py          # Excel-friendly CSV generator (UTF-8-SIG BOM)
-└── bot.py               # aiogram 3.x dispatcher, FSM wizard, background worker
++-----------------------------------------------------------+
+| Target Web Sources & RSS Feeds                            |
++-----------------------------------------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+| Asynchronous Polling Worker                               |
+| (aiohttp, feedparser, DOM sanitization, SSRF protection)  |
++-----------------------------------------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+| Content Hash Deduplication Layer                          |
+| (SHA-256 deterministic signatures in SQLite WAL mode)     |
++-----------------------------------------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+| Relevance Scoring Engine                                  |
+| (Normalized keyword matrix, cross-lingual NLP, AI filter) |
++-----------------------------------------------------------+
+                              |
+                              v
++-----------------------------------------------------------+
+| Dispatcher (aiogram 3.x router)                           |
++-----------------------------------------------------------+
+                              |
+              +---------------+---------------+
+              |                               |
+              v                               v
++-------------------------------+ +-------------------------------+
+| In-Telegram Instant Alerts    | | Export Generation             |
+| (Micro-CRM inline actions)    | | (Excel-compatible CSV / BOM)  |
++-------------------------------+ +-------------------------------+
 ```
+
+Pipeline execution sequence:
+Target Web Sources & RSS -> Asynchronous Polling Worker (aiohttp, feedparser, DOM sanitization) -> Content Hash Deduplication Layer (SHA-256 in SQLite WAL) -> Relevance Scoring Engine (Normalized keyword matrix and AI score filter) -> Dispatcher -> In-Telegram Instant Alerts & Export Generation (CSV/XLSX).
 
 ---
 
-## Quickstart
+## Feature Breakdown
 
-### 1. Prerequisites
-- Python 3.10+
-- Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
-- Optional: Google Gemini API Key
+- Autonomous Background Scraping: Asynchronous background worker scans registered RSS/Atom feeds, HTML listings, and JSON endpoints with exponential backoff and comprehensive Server-Side Request Forgery (SSRF) validation.
+- Zero-Duplicate Hashing: SHA-256 content fingerprints (computed over normalized URL and title strings) prevent redundant processing and guarantee zero duplicate notifications.
+- Trilingual UI (GB/UA/RU): Complete native localization across English, Ukrainian, and Russian interfaces. Automatic Telegram client language detection is paired with instant runtime language override via inline controls.
+- Strict Onboarding Standards: Users without prior database records encounter an onboarding language selection gate with Latin '(Telegram)' client auto-sync labels.
+- Subscriber-Isolated Notification Formatting: The background scheduler resolves each subscriber's language preference individually, rendering lead alert cards, status badges, and inline actions strictly in that subscriber's language.
+- Dynamic Localized CSV/Excel Exports: Generates Excel-friendly CSV reports using UTF-8-SIG encoding (BOM prefix) and semicolon delimiters, dynamically rendering column headers (ID, Date, Source, Category, Score, Title, Summary, Status, URL) in the requesting user's language.
+- Synthetic Demo Engine: Self-contained generator produces realistic B2B opportunities localized into English, Ukrainian, and Russian for immediate end-to-end testing without external network traffic.
 
-### 2. Installation
+---
+
+## Tech Stack
+
+| Component | Technology | Technical Purpose |
+|---|---|---|
+| Language | Python 3.10+ | Core asynchronous application runtime |
+| Bot Framework | aiogram 3.x | Telegram Bot API integration, FSM wizards, and event routing |
+| Database | SQLite 3 (WAL mode) | Persistent state, user settings, sources, and SHA-256 indexes |
+| HTTP Client | aiohttp | Non-blocking HTTP/HTTPS transport with SSL context validation |
+| Feed Parser | feedparser & BeautifulSoup4 | RSS 2.0 / Atom XML parsing and DOM sanitization |
+| AI Scoring | Google Gemini SDK (`google-genai`) | Semantic opportunity evaluation and cross-lingual relevance analysis |
+| Heuristic Scorer | Python Regex Engine | Deterministic keyword density, budget regex, and urgency scoring |
+| Report Exporter | Python `csv` module | Excel-compatible UTF-8 BOM (`\xef\xbb\xbf`) delimited export |
+
+---
+
+## Setup and Configuration
+
+### Environment Variables
+
+The application is configured using environment variables defined in a `.env` file:
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `BOT_TOKEN` | String | None (Required) | Telegram Bot API token issued by @BotFather. |
+| `CHECK_INTERVAL_SECONDS` | Integer | `300` | Background feed polling frequency in seconds. |
+| `DEFAULT_SCORE_THRESHOLD` | Integer | `60` | Minimum score threshold (0-100) required to trigger push alerts. |
+| `DB_PATH` | String | `radar_state.db` | File path for SQLite database with WAL journal mode. |
+| `ADMIN_IDS` | Comma-separated ints | None | Telegram user IDs authorized to access the system (RBAC). |
+| `GEMINI_API_KEY` | String | None (Optional) | Google Gemini API key. Defaults to deterministic heuristics if omitted. |
+| `GEMINI_MODEL` | String | `gemini-3.8-flash` | Gemini model name used for AI scoring and evaluation. |
+| `HTTP_TIMEOUT` | Float | `15.0` | Maximum network request timeout in seconds. |
+| `EXPORT_DIR` | String | `exports` | Directory for temporary export artifact generation. |
+
+### Installation
+
+1. Clone repository and initialize virtual environment:
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone <repository_url>
 cd project_3
-
-# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```
 
-# Install dependencies
+2. Install dependencies:
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. Environment Configuration
-Copy `.env.example` to `.env` and fill in your parameters:
+3. Configure environment settings:
 ```bash
 cp .env.example .env
+# Edit .env with your credentials
 ```
 
-```ini
-# Required: Bot token from @BotFather
-BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
-
-# Required: Authorized Telegram user IDs (comma-separated integers)
-ADMIN_IDS=123456789
-
-# Optional: Google Gemini API key (defaults to deterministic heuristic if omitted)
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.8-flash
-
-# Radar parameters
-POLL_INTERVAL_SECONDS=300
-HTTP_TIMEOUT=15.0
-MIN_ALERT_SCORE=60
-```
-
-### 4. Launching the System
+4. Launch application:
 ```bash
 python bot.py
 ```
 
 ---
 
-## Bot Commands & User Flows
+## Testing and Verification
 
-| Command / Button | Description |
-|---|---|
-| `/start` | Displays executive dashboard: active sources, total analyzed, hot leads, saved items. |
-| `⚡ Демо-прогон (Тест радара)` / `/demo` | Triggers immediate demo ingestion of 3 realistic leads, scores them, and displays interactive cards. |
-| `📡 Мои источники` / `/sources` | Lists configured sources with inline controls: `[⏸ Пауза]`, `[🔄 Проверить]`, `[🗑 Удалить]`. |
-| `➕ Добавить источник` / `/add` | Interactive 4-step FSM wizard to add an RSS feed, HTML page, or Demo source. |
-| `📊 Скачать отчёт (Excel/CSV)` / `/export` | Generates and sends a downloadable `.csv` file ready for Microsoft Excel. |
+Verify syntax and byte-compilation across all application modules:
+
+```bash
+python -m py_compile bot.py scraper.py database.py locales.py
+```
+
+Execute database schema initialization check:
+
+```bash
+python -c "import asyncio, database; asyncio.run(database.init_db())"
+```
 
 ---
 
-## Testing & Verification
+## License
 
-Compile and test all modules:
-```bash
-# 1. Syntax & compilation check
-python -m py_compile config.py database.py scraper.py ai_scorer.py exporter.py bot.py
-
-# 2. Run automated verification suite
-python -c "import asyncio, database; asyncio.run(database.init_db())"
-```
+This project is licensed under the terms of the MIT License.
